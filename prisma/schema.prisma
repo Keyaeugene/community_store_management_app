@@ -13,3 +13,85 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
+model Member {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  email            String      @unique
+  householdSize    Int         // Used to calculate household ration (e.g., ration = householdSize * basePerPerson)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  rationCards      RationCard[]
+  sales            Sale[]
+  purchases        Purchase[]
+  credits          Credit[]
+}
+
+model RationCard {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  memberId         String      @db.ObjectId
+  year             Int         // e.g., 2025
+  allowance        Json        // { "beans": 100, "maize": 200 } in kg or units at wholesale
+  consumed         Json        // Tracks usage, e.g., { "beans": 50 }
+  renewalDate      DateTime
+  member           Member      @relation(fields: [memberId], references: [id])
+  @@unique([memberId, year])
+}
+
+model Item {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  name             String      // e.g., "beans", "maize", "soap"
+  type             ItemType    // Produce (grains sold by members) or Consumable (sold by store)
+  wholesalePrice   Float
+  marketPrice      Float
+  unit             String      // e.g., "kg"
+  inventory        Int         // Current stock in store
+}
+
+enum ItemType {
+  PRODUCE
+  CONSUMABLE
+}
+
+model Branch {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  name             String      // e.g., "Main Branch"
+  location         String
+  sales            Sale[]
+  purchases        Purchase[]
+}
+
+model Sale {  // Member selling produce to store
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  memberId         String      @db.ObjectId
+  branchId         String      @db.ObjectId
+  itemId           String      @db.ObjectId
+  quantity         Float
+  date             DateTime    @default(now())
+  member           Member      @relation(fields: [memberId], references: [id])
+  branch           Branch      @relation(fields: [branchId], references: [id])
+  // Enforce min 50% of household ration via app logic
+}
+
+model Purchase {  // Member buying consumables from store
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  memberId         String      @db.ObjectId
+  branchId         String      @db.ObjectId
+  itemId           String      @db.ObjectId
+  quantity         Float
+  pricePaid        Float       // Wholesale if within ration, market otherwise
+  onCredit         Boolean     @default(false)
+  date             DateTime    @default(now())
+  member           Member      @relation(fields: [memberId], references: [id])
+  branch           Branch      @relation(fields: [branchId], references: [id])
+}
+
+model Credit {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  memberId         String      @db.ObjectId
+  amount           Float
+  remaining        Float
+  dateIssued       DateTime    @default(now())
+  member           Member      @relation(fields: [memberId], references: [id])
+  // Limit determined in app (guideline 8)
+}

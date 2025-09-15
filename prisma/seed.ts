@@ -1,11 +1,10 @@
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaClient, ItemType } from '../src/generated/prisma'; // Adjust the path if your generated prisma folder is elsewhere
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Starting seed...');
 
-  // For MongoDB, we need to handle duplicates manually
   // Seed members
   console.log('Seeding members...');
   const membersData = [
@@ -18,7 +17,7 @@ async function main() {
     const existingMember = await prisma.member.findUnique({
       where: { email: memberData.email }
     });
-    
+
     if (!existingMember) {
       await prisma.member.create({ data: memberData });
       console.log(`Created member: ${memberData.name}`);
@@ -30,22 +29,19 @@ async function main() {
   // Seed items
   console.log('Seeding items...');
   const itemsData = [
-    // Produce (grains that members can sell)
-    { name: 'Beans', type: 'PRODUCE' as const, wholesalePrice: 2.0, marketPrice: 3.0, unit: 'kg', inventory: 100 },
-    { name: 'Maize', type: 'PRODUCE' as const, wholesalePrice: 1.5, marketPrice: 2.5, unit: 'kg', inventory: 200 },
-    { name: 'Millet', type: 'PRODUCE' as const, wholesalePrice: 1.8, marketPrice: 2.8, unit: 'kg', inventory: 150 },
-    
-    // Consumables (what members can buy from store)
-    { name: 'Soap', type: 'CONSUMABLE' as const, wholesalePrice: 1.0, marketPrice: 1.5, unit: 'unit', inventory: 50 },
-    { name: 'Sugar', type: 'CONSUMABLE' as const, wholesalePrice: 0.8, marketPrice: 1.2, unit: 'kg', inventory: 75 },
-    { name: 'Salt', type: 'CONSUMABLE' as const, wholesalePrice: 0.5, marketPrice: 0.8, unit: 'kg', inventory: 100 },
+    { name: 'Beans', type: ItemType.PRODUCE, wholesalePrice: 2.0, marketPrice: 3.0, unit: 'kg', inventory: 100 },
+    { name: 'Maize', type: ItemType.PRODUCE, wholesalePrice: 1.5, marketPrice: 2.5, unit: 'kg', inventory: 200 },
+    { name: 'Millet', type: ItemType.PRODUCE, wholesalePrice: 1.8, marketPrice: 2.8, unit: 'kg', inventory: 150 },
+    { name: 'Soap', type: ItemType.CONSUMABLE, wholesalePrice: 1.0, marketPrice: 1.5, unit: 'unit', inventory: 50 },
+    { name: 'Sugar', type: ItemType.CONSUMABLE, wholesalePrice: 0.8, marketPrice: 1.2, unit: 'kg', inventory: 75 },
+    { name: 'Salt', type: ItemType.CONSUMABLE, wholesalePrice: 0.5, marketPrice: 0.8, unit: 'kg', inventory: 100 },
   ];
 
   for (const itemData of itemsData) {
     const existingItem = await prisma.item.findFirst({
       where: { name: itemData.name }
     });
-    
+
     if (!existingItem) {
       await prisma.item.create({ data: itemData });
       console.log(`Created item: ${itemData.name}`);
@@ -66,7 +62,7 @@ async function main() {
     const existingBranch = await prisma.branch.findFirst({
       where: { name: branchData.name }
     });
-    
+
     if (!existingBranch) {
       await prisma.branch.create({ data: branchData });
       console.log(`Created branch: ${branchData.name}`);
@@ -79,15 +75,12 @@ async function main() {
   console.log('Creating ration cards...');
   const currentYear = new Date().getFullYear();
   const allMembers = await prisma.member.findMany();
-  
+
   for (const member of allMembers) {
-    // Check if ration card already exists for this year
-    const existingCard = await prisma.rationCard.findUnique({
+    const existingCard = await prisma.rationCard.findFirst({
       where: {
-        memberId_year: {
-          memberId: member.id,
-          year: currentYear
-        }
+        memberId: member.id,
+        year: currentYear
       }
     });
 
@@ -110,7 +103,7 @@ async function main() {
           year: currentYear,
           allowance,
           consumed: { beans: 0, maize: 0, millet: 0 },
-          renewalDate: new Date(currentYear + 1, 0, 1), // January 1st next year
+          renewalDate: new Date(currentYear + 1, 0, 1),
         },
       });
       console.log(`Created ration card for ${member.name}`);

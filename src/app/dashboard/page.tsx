@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArrowUp, ArrowDown, Users, ShoppingCart, CreditCard, Package, Star, Calendar, TrendingUp } from 'lucide-react';
+import { useEffect, useState, ComponentType } from 'react';
+import { ArrowUp, ArrowDown, Users, ShoppingCart, CreditCard, Package, Star, TrendingUp } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -19,6 +19,22 @@ interface DashboardStats {
   activePurchases: number;
   pendingCredits: number;
   inventoryItems: number;
+}
+
+interface StatCardProps {
+  title: string;
+  value: number | string;
+  icon: ComponentType<{ className?: string }>;
+  trend: 'up' | 'down';
+  trendValue: number;
+  color: string;
+}
+
+interface QuickActionCardProps {
+  title: number | string;
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  color: string;
 }
 
 export default function Dashboard() {
@@ -140,7 +156,7 @@ export default function Dashboard() {
     }
   };
 
-  const StatCard = ({ title, value, icon: Icon, trend, trendValue, color }: any) => (
+  const StatCard = ({ title, value, icon: Icon, trend, trendValue, color }: StatCardProps) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-4">
         <h5 className="text-gray-600 font-medium">{title}</h5>
@@ -166,7 +182,7 @@ export default function Dashboard() {
     </div>
   );
 
-  const QuickActionCard = ({ title, description, icon: Icon, action, color }: any) => (
+  const QuickActionCard = ({ title, description, icon: Icon, color }: QuickActionCardProps) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-lg ${color}`}>

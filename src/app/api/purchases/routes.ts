@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, RationCard, Item } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+// Define the shape of allowance and consumed fields
+type RationMap = Record<string, number>;
 
 export async function POST(req: NextRequest) {
   const { memberId, branchId, itemId, quantity, useCredit = false } = await req.json();
 
   const item = await prisma.item.findUnique({ where: { id: itemId } });
-  if (!item || item.inventory < quantity) return NextResponse.json({ error: 'Insufficient stock' }, { status: 400 });
+  if (!item || item.inventory < quantity)
+    return NextResponse.json({ error: 'Insufficient stock' }, { status: 400 });
 
   // Get current year's ration card
   const year = new Date().getFullYear();
@@ -20,23 +24,28 @@ export async function POST(req: NextRequest) {
 
   if (rationCard) {
     const itemName = item.name;
-    const remainingAllowance = (rationCard.allowance as any)[itemName] - ((rationCard.consumed as any)[itemName] || 0);
+    // Cast to RationMap for type safety
+    const allowance = rationCard.allowance as unknown as RationMap;
+    const consumed = rationCard.consumed as unknown as RationMap;
+    const remainingAllowance = (allowance[itemName] || 0) - (consumed[itemName] || 0);
     if (remainingAllowance >= quantity) {
       updateConsumed = true;
     } else {
-      pricePerUnit = item.marketPrice;  // Guideline 7: Market price if exhausted
+      pricePerUnit = item.marketPrice; // Market price if exhausted
     }
   } else {
-    pricePerUnit = item.marketPrice;  // No card: Market price
+    pricePerUnit = item.marketPrice; // No card: Market price
   }
 
-  const totalPrice = pricePerUnit * quantity;
+  let totalPrice = pricePerUnit * quantity;
 
   if (useCredit) {
-    // Guideline 8: Credit at market price (even if wholesale applicable?)
-    pricePerUnit = item.marketPrice;  // Enforce market for credit
+    // Credit at market price
+    pricePerUnit = item.marketPrice;
+    totalPrice = pricePerUnit * quantity;
     const credit = await prisma.credit.findFirst({ where: { memberId, remaining: { gte: totalPrice } } });
-    if (!credit) return NextResponse.json({ error: 'Insufficient credit' }, { status: 400 });
+    if (!credit)
+      return NextResponse.json({ error: 'Insufficient credit' }, { status: 400 });
 
     await prisma.credit.update({
       where: { id: credit.id },
@@ -56,12 +65,13 @@ export async function POST(req: NextRequest) {
 
   if (updateConsumed && rationCard) {
     const itemName = item.name;
+    const consumed = rationCard.consumed as unknown as RationMap;
     await prisma.rationCard.update({
       where: { id: rationCard.id },
       data: {
         consumed: {
-          ...rationCard.consumed as any,
-          [itemName]: ((rationCard.consumed as any)[itemName] || 0) + quantity,
+          ...consumed,
+          [itemName]: (consumed[itemName] || 0) + quantity,
         },
       },
     });

@@ -1,2 +1,2 @@
-# Ignore Prisma generated client
-src/generated/prisma/
+# Ignore all generated Prisma files
+src/generated/
